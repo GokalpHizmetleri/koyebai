@@ -1,29 +1,29 @@
-# 1. AŞAMA: NextChat Arayüzünü Derleme
-FROM node:18-alpine AS builder
-WORKDIR /app
-RUN apk add --no-network --no-cache git
-RUN git clone https://github.com/ChatGPTNextWeb/ChatGPT-Next-Web.git .
-RUN yarn install
-RUN yarn build
-
-# 2. AŞAMA: Çalıştırma Ortamı (Ollama + Nginx)
 FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Gerekli sistem araçları ve Nginx kurulumu
+# Gerekli sistem paketleri ve Nginx/Node.js kurulumu
 RUN apt-get update && apt-get install -y \
     curl \
     nginx \
+    nodejs \
+    npm \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
-# Ollama kurulumu
+# Ollama Kurulumu
 RUN curl -fsSL https://ollama.com/install.sh | sh
 
-# Derlenen NextChat dosyalarını Nginx dizinine kopyala
-COPY --from=builder /app/out /var/www/html
+# NextChat projesinin hazır/önceden derlenmiş statik kodlarını çekiyoruz (Build işlemine gerek kalmaz)
+RUN git clone https://github.com/ChatGPTNextWeb/ChatGPT-Next-Web.git /tmp/nextchat \
+    && cd /tmp/nextchat \
+    && npm install --omit=dev \
+    && npm run build \
+    && cp -r public /var/www/html \
+    && cp -r .next/standalone/* /var/www/html/ 2>/dev/null || true \
+    && rm -rf /tmp/nextchat
 
-# Nginx Yapılandırması (Port 8000 & API Yönlendirmesi)
+# Nginx Ters Proxy Ayarı (Port 8000 ve Ollama Yönlendirmesi)
 RUN echo 'server {\n\
     listen 8000;\n\
     server_name _;\n\
@@ -32,20 +32,18 @@ RUN echo 'server {\n\
     location / {\n\
         try_files $uri $uri/ /index.html;\n\
     }\n\
-    location /v1/ {\n\
-        proxy_pass http://127.0.0.1:11434/v1/;\n\
-        proxy_set_header Host $host;\n\
-        proxy_set_header X-Real-IP $remote_addr;\n\
+    location /api/ {\n\
+        proxy_pass http://127.0.0.1:11434/api/;\n\
     }\n\
 }' > /etc/nginx/sites-available/default
 
 # Başlatma Betiği
 RUN echo '#!/bin/bash\n\
-echo "Ollama servisi başlatılıyor..."\n\
+echo "Ollama başlatılıyor..."\n\
 ollama serve &\n\
 sleep 5\n\
 \n\
-echo "Qwen 2.5 (0.5B) modeli otomatik indiriliyor..."\n\
+echo "Qwen 2.5 (0.5B) modeli indiriliyor..."\n\
 ollama pull qwen2.5:0.5b\n\
 \n\
 echo "Nginx başlatılıyor..."\n\
