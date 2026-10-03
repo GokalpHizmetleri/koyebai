@@ -1,6 +1,6 @@
 FROM alpine:latest
 
-# Gerekli ultra hafif paketleri ve zstd/curl yükle
+# Gerekli paketleri kur ve gereksiz indeksleri anında temizle
 RUN apk add --no-cache \
     curl \
     zstd \
@@ -11,13 +11,12 @@ RUN apk add --no-cache \
 # Ollama Kurulumu
 RUN curl -fsSL https://ollama.com/install.sh | sh
 
-# Python bağımlılıkları (sadece Flask ve Requests)
+# Python kütüphanelerini kur ve pip önbelleğini sil
 RUN pip3 install --no-cache-dir flask requests
 
-# ChatGPT benzeri hafif web arayüzünü (app.py) hazırlama
-RUN mkdir /app
 WORKDIR /app
 
+# ChatGPT Arayüzlü Python Dosyasını Oluştur
 RUN echo 'import os, requests\n\
 from flask import Flask, render_template_string, request, jsonify\n\
 app = Flask(__name__)\n\
