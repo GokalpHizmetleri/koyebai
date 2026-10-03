@@ -2,19 +2,20 @@ FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Gerekli sistem paketleri ve Nginx/Node.js kurulumu
+# Gerekli sistem paketleri, Nginx, Node.js ve zstd kurulumu
 RUN apt-get update && apt-get install -y \
     curl \
+    zstd \
     nginx \
     nodejs \
     npm \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Ollama Kurulumu
+# Ollama Kurulumu (Artık zstd olduğu için hata vermeyecek)
 RUN curl -fsSL https://ollama.com/install.sh | sh
 
-# NextChat projesinin hazır/önceden derlenmiş statik kodlarını çekiyoruz (Build işlemine gerek kalmaz)
+# NextChat kodlarını çekip hazırlama
 RUN git clone https://github.com/ChatGPTNextWeb/ChatGPT-Next-Web.git /tmp/nextchat \
     && cd /tmp/nextchat \
     && npm install --omit=dev \
@@ -23,7 +24,7 @@ RUN git clone https://github.com/ChatGPTNextWeb/ChatGPT-Next-Web.git /tmp/nextch
     && cp -r .next/standalone/* /var/www/html/ 2>/dev/null || true \
     && rm -rf /tmp/nextchat
 
-# Nginx Ters Proxy Ayarı (Port 8000 ve Ollama Yönlendirmesi)
+# Nginx Yapılandırması (Port 8000 ve API yönlendirme)
 RUN echo 'server {\n\
     listen 8000;\n\
     server_name _;\n\
